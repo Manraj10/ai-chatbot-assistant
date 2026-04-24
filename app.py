@@ -44,6 +44,11 @@ class SessionListItem(BaseModel):
     last_updated: str | None
 
 
+SessionCreateRequest.model_rebuild()
+SessionState.model_rebuild()
+SessionListItem.model_rebuild()
+
+
 def timestamp() -> str:
     return datetime.now().isoformat(timespec="seconds")
 

@@ -1,43 +1,62 @@
 # AI Chatbot Assistant
 
-A session-aware backend for a conversational assistant that keeps track of recent messages, builds responses from prior context, and exposes a clean API for multi-turn chat. This project is intentionally structured to show backend architecture and conversation-state handling in a way that can later plug into a real model provider.
+A lightweight backend for session-based chat. The app keeps short conversation history per session, generates context-aware replies, and exposes a simple API that could later be connected to a real model provider.
 
-## Why this project is strong
+## Overview
 
-This project demonstrates:
+This project is less about the model itself and more about the backend shape around a chatbot:
 
-- stateful backend design
-- session memory management
-- prompt assembly and response generation flow
-- API structure that can later connect to a production AI provider
+- session creation
+- rolling conversation memory
+- transcript retrieval
+- session cleanup
 
-## Tech stack
+That makes it a useful starter for building a real chat product later.
+
+## Built with
 
 - Python
 - FastAPI
 - Pydantic
 
-## Features
+## What it does
 
-- create chat sessions
-- send multi-turn user messages
-- keep rolling memory of recent conversation turns
-- generate contextual responses based on the session history
-- inspect a session transcript
+- creates chat sessions with unique IDs
+- stores recent user and assistant turns
+- generates replies using recent conversation context
+- lists active sessions
+- deletes sessions when they are no longer needed
 
-## Run locally
+## API
+
+### `POST /sessions`
+Create a new chat session.
+
+### `GET /sessions`
+List active sessions with message counts and last-updated timestamps.
+
+### `GET /sessions/{session_id}`
+Fetch the transcript for one session.
+
+### `POST /sessions/{session_id}/messages`
+Send a user message and receive a reply.
+
+### `DELETE /sessions/{session_id}`
+Delete an existing session.
+
+## Running locally
 
 ```bash
 pip install -r requirements.txt
 uvicorn app:app --reload
 ```
 
-Open:
+Interactive docs:
 
 ```text
 http://127.0.0.1:8000/docs
 ```
 
-## Resume-ready description
+## Notes
 
-Built a FastAPI-based conversational assistant with session memory and structured response generation, supporting multi-turn chat behavior, message history management, and extensible backend design for future AI model integration.
+The current reply engine is intentionally simple and local. The structure is set up so a real LLM provider could be added later without needing to redesign the session and message flow from scratch.

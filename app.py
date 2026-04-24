@@ -23,6 +23,12 @@ class SessionResponse(BaseModel):
     messages: list[ChatMessage]
 
 
+class SessionListItem(BaseModel):
+    session_id: str
+    total_messages: int
+    last_updated: str | None
+
+
 def timestamp() -> str:
     return datetime.now().isoformat(timespec="seconds")
 
@@ -64,6 +70,20 @@ def create_session() -> dict[str, str]:
     return {"session_id": session_id}
 
 
+@app.get("/sessions", response_model=list[SessionListItem])
+def list_sessions() -> list[SessionListItem]:
+    items: list[SessionListItem] = []
+    for session_id, messages in sessions.items():
+        items.append(
+            SessionListItem(
+                session_id=session_id,
+                total_messages=len(messages),
+                last_updated=messages[-1].created_at if messages else None,
+            )
+        )
+    return items
+
+
 @app.get("/sessions/{session_id}", response_model=SessionResponse)
 def get_session(session_id: str) -> SessionResponse:
     if session_id not in sessions:
@@ -89,3 +109,11 @@ def send_message(session_id: str, payload: MessageRequest) -> dict[str, str]:
     sessions[session_id] = sessions[session_id][-12:]
 
     return {"reply": reply_text, "session_id": session_id}
+
+
+@app.delete("/sessions/{session_id}")
+def delete_session(session_id: str) -> dict[str, str]:
+    if session_id not in sessions:
+        raise HTTPException(status_code=404, detail="Session not found")
+    del sessions[session_id]
+    return {"message": "Session deleted", "session_id": session_id}

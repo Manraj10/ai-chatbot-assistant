@@ -4,6 +4,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Literal
 from uuid import uuid4
+import re
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
@@ -56,29 +57,127 @@ def timestamp() -> str:
 sessions: dict[str, SessionState] = {}
 
 
+def normalize(text: str) -> str:
+    return re.sub(r"\s+", " ", text.strip().lower())
+
+
+def detect_topic(message: str) -> str:
+    text = normalize(message)
+    if "ap gov" in text or "government" in text or "gov" in text:
+        return "ap_gov"
+    if "resume" in text or "job" in text or "internship" in text:
+        return "career"
+    if "study" in text or "exam" in text or "test" in text:
+        return "study"
+    if "project" in text or "code" in text or "app" in text:
+        return "build"
+    return "general"
+
+
 def planner_reply(history: list[ChatMessage], latest_user_message: str) -> str:
-    context = [message.content for message in history if message.role == "user"][-2:]
-    summary = f" Recent context: {' | '.join(context[:-1])}." if len(context) > 1 else ""
+    topic = detect_topic(latest_user_message)
+    if topic == "ap_gov":
+        return (
+            "Here is a simple AP Gov study plan you can use tonight:\n\n"
+            "1. Spend 20 minutes reviewing foundational documents and what each one did.\n"
+            "2. Spend 20 minutes on core concepts like federalism, separation of powers, and checks and balances.\n"
+            "3. Spend 15 minutes reviewing Supreme Court cases and why they matter.\n"
+            "4. Spend 15 minutes doing practice multiple choice or FRQs.\n"
+            "5. End by writing a one-page cheat sheet from memory.\n\n"
+            "If you want, I can turn that into a 3-day AP Gov cram plan."
+        )
+    if topic == "career":
+        return (
+            "Here is a practical plan:\n\n"
+            "1. Pick one target role.\n"
+            "2. Match your resume bullets to that role.\n"
+            "3. Surface 2-3 strongest projects.\n"
+            "4. Prepare a short answer for why you want the role.\n"
+            "5. Submit, then track follow-ups in one list.\n\n"
+            "If you want, I can turn this into a same-day internship application checklist."
+        )
+    if topic == "build":
+        return (
+            "Start with this build order:\n\n"
+            "1. Define the smallest useful version of the app.\n"
+            "2. Set up the data model and API routes.\n"
+            "3. Build the UI around one working flow.\n"
+            "4. Test one real user path end to end.\n"
+            "5. Polish the README and deployment instructions.\n\n"
+            "If you want, I can help break your idea into backend, frontend, and deployment tasks."
+        )
     return (
-        "Plan mode: break the request into the smallest useful next actions."
-        f"{summary} Start here: {latest_user_message}"
+        "Here is a clean next-step plan:\n\n"
+        "1. Clarify the goal.\n"
+        "2. Break it into 3 small actions.\n"
+        "3. Do the highest-value action first.\n"
+        "4. Check what changed.\n"
+        "5. Adjust from there.\n\n"
+        "If you want, I can make that plan specific to your exact situation."
     )
 
 
 def coach_reply(history: list[ChatMessage], latest_user_message: str) -> str:
-    turns = len([message for message in history if message.role == "user"])
+    topic = detect_topic(latest_user_message)
+    if topic in {"study", "ap_gov"}:
+        return (
+            "You do not need to master everything at once.\n\n"
+            "Focus on one unit, one concept list, and one practice set at a time. "
+            "If you stay consistent for even 45 focused minutes, that is enough to make progress tonight.\n\n"
+            "Tell me what unit you are stuck on and I will help you simplify it."
+        )
+    if topic == "career":
+        return (
+            "You are already in a stronger position than you think.\n\n"
+            "You have a real internship, a strong school brand, and actual projects. "
+            "The goal now is not to look perfect, it is to look credible and apply fast.\n\n"
+            "Send me the role you want and I will help you tailor for it."
+        )
     return (
-        "Coach mode: keep the response practical and encouraging. "
-        f"This is turn {turns}. Focus on progress and clarity for: {latest_user_message}"
+        "The best move is to keep this simple and get one real win first.\n\n"
+        "Pick the next concrete step, finish it, and then improve from there. "
+        "Momentum matters more than making it perfect on the first try."
     )
 
 
 def explainer_reply(history: list[ChatMessage], latest_user_message: str) -> str:
-    prior_topics = [message.content for message in history if message.role == "user"][-2:]
-    references = f" Earlier topics: {' | '.join(prior_topics[:-1])}." if len(prior_topics) > 1 else ""
+    topic = detect_topic(latest_user_message)
+    if topic == "ap_gov":
+        return (
+            "AP Gov is mostly about understanding how power is structured and limited in the U.S. system.\n\n"
+            "The big ideas are:\n"
+            "- constitutional foundations\n"
+            "- federalism\n"
+            "- branches of government\n"
+            "- civil liberties and civil rights\n"
+            "- political participation and public policy\n\n"
+            "A good way to study is to connect each topic to one example, one court case, and one real effect.\n\n"
+            "If you want, I can explain AP Gov unit by unit in a way that is easier to memorize."
+        )
+    if topic == "career":
+        return (
+            "For internships, recruiters usually scan for three things first:\n\n"
+            "- proof you can build or contribute\n"
+            "- proof you can learn quickly\n"
+            "- proof you can communicate clearly\n\n"
+            "That is why your internship, coursework, and projects matter more than trying to sound overly advanced.\n\n"
+            "If you want, I can explain how to position your background for software engineering roles specifically."
+        )
+    if topic == "build":
+        return (
+            "A strong software project usually has four parts:\n\n"
+            "- a clear problem\n"
+            "- a working implementation\n"
+            "- technical decisions you can explain\n"
+            "- a polished README and demo path\n\n"
+            "The project becomes stronger when the app solves a real flow instead of just showing disconnected features."
+        )
     return (
-        "Explainer mode: answer with structure, examples, and reasoning."
-        f"{references} Topic to explain: {latest_user_message}"
+        "A good explanation should do three things:\n\n"
+        "- define the idea clearly\n"
+        "- break it into smaller parts\n"
+        "- connect it to a concrete example\n\n"
+        "If you want, give me the topic and I will explain it in that format."
     )
 
 

@@ -1,54 +1,66 @@
 # AI Chatbot Assistant
 
-A lightweight backend for session-based chat. The app keeps short conversation history per session, generates context-aware replies, and exposes a simple API that could later be connected to a real model provider.
+A session-based chat app built with FastAPI. It includes a browser UI, multiple response modes, rolling conversation memory, and a backend structure that can later be wired up to a real model provider.
 
 ## Overview
 
-This project is less about the model itself and more about the backend shape around a chatbot:
+This project focuses on the application layer around chat:
 
-- session creation
-- rolling conversation memory
-- transcript retrieval
-- session cleanup
+- session management
+- conversation history
+- provider-style response behavior
+- browser interaction on top of an API backend
 
-That makes it a useful starter for building a real chat product later.
+The current response engine is local and deterministic, but the session flow is built to make a real model integration straightforward later.
 
 ## Built with
 
 - Python
 - FastAPI
 - Pydantic
+- HTML
+- JavaScript
 
-## What it does
+## Features
 
-- creates chat sessions with unique IDs
-- stores recent user and assistant turns
-- generates replies using recent conversation context
-- lists active sessions
-- deletes sessions when they are no longer needed
+- create chat sessions with different response modes
+- switch between `planner`, `coach`, and `explainer` behavior
+- keep rolling memory for recent turns
+- list and revisit active sessions
+- delete sessions when they are no longer needed
+- use a lightweight browser UI on top of the API
 
 ## API
 
-### `POST /sessions`
-Create a new chat session.
+### `GET /api/providers`
+List available response modes.
 
-### `GET /sessions`
-List active sessions with message counts and last-updated timestamps.
+### `POST /api/sessions`
+Create a new session with a provider.
 
-### `GET /sessions/{session_id}`
-Fetch the transcript for one session.
+### `GET /api/sessions`
+List current sessions.
 
-### `POST /sessions/{session_id}/messages`
-Send a user message and receive a reply.
+### `GET /api/sessions/{session_id}`
+Fetch one session and its transcript.
 
-### `DELETE /sessions/{session_id}`
-Delete an existing session.
+### `POST /api/sessions/{session_id}/messages`
+Send a user message and receive a response.
+
+### `DELETE /api/sessions/{session_id}`
+Delete a session.
 
 ## Running locally
 
 ```bash
 pip install -r requirements.txt
 uvicorn app:app --reload
+```
+
+Open the app:
+
+```text
+http://127.0.0.1:8000/
 ```
 
 Interactive docs:
@@ -59,4 +71,4 @@ http://127.0.0.1:8000/docs
 
 ## Notes
 
-The current reply engine is intentionally simple and local. The structure is set up so a real LLM provider could be added later without needing to redesign the session and message flow from scratch.
+The provider abstraction in this version is intentionally lightweight. It is there to model how different assistant behaviors can sit behind the same session and message flow before connecting to a hosted LLM.

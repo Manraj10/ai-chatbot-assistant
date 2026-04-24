@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Chatbot Assistant</title>
+    <style>
+      :root {
+        --bg: #eff3f6;
+        --card: #ffffff;
+        --ink: #19232d;
+        --muted: #637281;
+        --accent: #1464a0;
+        --line: #d6e0ea;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "Segoe UI", sans-serif;
+        color: var(--ink);
+        background: linear-gradient(180deg, #f3f7fb, var(--bg));
+      }
+      main {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 28px 18px 42px;
+      }
+      .layout {
+        display: grid;
+        grid-template-columns: 300px 1fr;
+        gap: 18px;
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        padding: 18px;
+        box-shadow: 0 16px 30px rgba(13, 33, 54, 0.06);
+      }
+      .session-item {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 10px 12px;
+        margin-bottom: 10px;
+        cursor: pointer;
+      }
+      .session-item.active {
+        border-color: var(--accent);
+        background: #eef6fb;
+      }
+      .messages {
+        min-height: 360px;
+        max-height: 480px;
+        overflow: auto;
+        display: grid;
+        gap: 10px;
+        margin-bottom: 12px;
+      }
+      .bubble {
+        padding: 12px 14px;
+        border-radius: 16px;
+        max-width: 80%;
+        white-space: pre-wrap;
+      }
+      .user {
+        justify-self: end;
+        background: #dff1ff;
+      }
+      .assistant {
+        background: #f4f7fa;
+      }
+      textarea, select, button {
+        width: 100%;
+        font: inherit;
+      }
+      textarea {
+        min-height: 110px;
+        border-radius: 14px;
+        border: 1px solid var(--line);
+        padding: 12px;
+      }
+      select, button {
+        border-radius: 14px;
+        padding: 12px;
+        border: 1px solid var(--line);
+      }
+      button {
+        background: var(--accent);
+        color: white;
+        border: none;
+        cursor: pointer;
+      }
+      .muted { color: var(--muted); }
+      @media (max-width: 880px) {
+        .layout { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="muted">AI Chatbot Assistant</p>
+      <h1>Session-based chat with provider modes.</h1>
+      <div class="layout">
+        <section class="card">
+          <h2>New session</h2>
+          <label for="provider">Provider</label>
+          <select id="provider">
+            <option value="planner">planner</option>
+            <option value="coach">coach</option>
+            <option value="explainer">explainer</option>
+          </select>
+          <button id="createSessionButton" style="margin-top: 12px;">Create session</button>
+          <p class="muted">Switch between session behaviors without changing the frontend flow.</p>
+
+          <h3>Sessions</h3>
+          <div id="sessions"></div>
+        </section>
+
+        <section class="card">
+          <h2 id="sessionTitle">No session selected</h2>
+          <div class="messages" id="messages"></div>
+          <textarea id="messageInput" placeholder="Ask for a plan, an explanation, or a coaching response..."></textarea>
+          <button id="sendButton" style="margin-top: 12px;">Send message</button>
+        </section>
+      </div>
+    </main>
+
+    <script>
+      const sessionsEl = document.getElementById("sessions");
+      const messagesEl = document.getElementById("messages");
+      const sessionTitleEl = document.getElementById("sessionTitle");
+      let activeSessionId = null;
+
+      function bubble(message) {
+        return `<div class="bubble ${message.role}">${message.content}</div>`;
+      }
+
+      async function loadSessions() {
+        const response = await fetch("/api/sessions");
+        const sessions = await response.json();
+        sessionsEl.innerHTML = sessions.map((session) => `
+          <div class="session-item ${session.session_id === activeSessionId ? "active" : ""}" data-id="${session.session_id}">
+            <strong>${session.provider}</strong><br />
+            <span class="muted">${session.total_messages} messages</span>
+          </div>
+        `).join("");
+
+        document.querySelectorAll(".session-item").forEach((item) => {
+          item.addEventListener("click", () => openSession(item.dataset.id));
+        });
+      }
+
+      async function openSession(sessionId) {
+        const response = await fetch(`/api/sessions/${sessionId}`);
+        const session = await response.json();
+        activeSessionId = session.session_id;
+        sessionTitleEl.textContent = `Session: ${session.provider}`;
+        messagesEl.innerHTML = session.messages.map(bubble).join("");
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+        await loadSessions();
+      }
+
+      async function createSession() {
+        const provider = document.getElementById("provider").value;
+        const response = await fetch("/api/sessions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ provider }),
+        });
+        const session = await response.json();
+        await openSession(session.session_id);
+      }
+
+      async function sendMessage() {
+        if (!activeSessionId) return;
+        const input = document.getElementById("messageInput");
+        const content = input.value.trim();
+        if (!content) return;
+        await fetch(`/api/sessions/${activeSessionId}/messages`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content }),
+        });
+        input.value = "";
+        await openSession(activeSessionId);
+      }
+
+      document.getElementById("createSessionButton").addEventListener("click", createSession);
+      document.getElementById("sendButton").addEventListener("click", sendMessage);
+      loadSessions();
+    </script>
+  </body>
+</html>
